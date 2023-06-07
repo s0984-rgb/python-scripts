@@ -1,0 +1,37 @@
+{
+    "a": // This object will be used as the --system parameter. This name is arbitrary and is there only as an iterator.
+        {
+            "path": "C:\\path\\to\\a", // What counts are the "path" and "file_pattern" keys
+            "file_pattern": "*.zarf"
+        },
+    "b":
+        {
+            "path": "C:\\to\\path\\b",
+            "file_pattern": "*.log"
+        },
+    "c":
+        {
+            "path": "C:\\c",
+            "file_pattern": "*.txt"
+        },
+    "example":
+        {
+            "path": "/var/exmaple",
+            "file_pattern": "*.log"
+        },
+    "A":
+        {
+            "path": "C:\\anotherpath\\A",
+            "file_pattern": "*.log"
+        },
+    "B":
+        {
+            "path": "C:\\anotherpath\\B",
+            "file_pattern": "*.log"
+        },
+    "C":
+        {
+            "path": "C:\\anotherpath\\C",
+            "file_pattern": "*.log"
+        }
+} // This is intended to be used with cronjobs/scheduled tasks to activate/deactivate the deletion of recurring files (weeds/pests) on a system.

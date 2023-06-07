@@ -1,0 +1,46 @@
+{
+	"name": "Python Scripts",
+	"dockerComposeFile": ["docker-compose.yaml"],
+	"service": "devenv",
+	"workspaceFolder": "/workspace/python-scripts",
+	"extensions": [
+		"streetsidesoftware.code-spell-checker",
+		"eamodio.gitlens",
+		"yzhang.markdown-all-in-one",
+		"davidanson.vscode-markdownlint",
+		"gitlab.gitlab-workflow",
+		"mikestead.dotenv",
+		"ms-vscode.makefile-tools",
+		"ms-azuretools.vscode-docker",
+		"shakram02.bash-beautify",
+		"GitLab.gitlab-workflow",
+		"redhat.vscode-yaml",
+		"ms-python.python"
+	],
+	"settings": {
+		"cSpell.ignorePaths": [
+			"*.json",
+			"*.code-workspace",
+			"*.go",
+			"*.yaml",
+			"*.yml",
+			".vscode"
+		],
+		"files.associations": {
+			"*.env.dist": "dotenv",
+			"*.env": "dotenv",
+			".envrc": "dotenv"
+		},
+		"files.autoSave": "afterDelay",
+		"files.autoSaveDelay": 5000,
+		"files.eol": "\n",
+		"terminal.integrated.profiles.linux": {
+			"bash": {"path": "bash", "args": ["-l"]},
+			"zsh": {"path": "zsh", "args": ["-l"]}
+		},
+		"terminal.integrated.defaultProfile.linux": "bash",
+		"terminal.integrated.enablePersistentSessions": true,
+		"terminal.integrated.persistentSessionReviveProcess": "never",
+		"remote.autoForwardPorts": false
+	}
+}

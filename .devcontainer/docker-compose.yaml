@@ -1,0 +1,29 @@
+version: "3.7"
+services:
+  devenv:
+    user: dev
+    build:
+      context: ../
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        DEV_USER: dev
+        GIT_EMAIL: ${GIT_EMAIL-}
+        GIT_SIGNINGKEY: ${GIT_SIGNINGKEY-}
+    volumes:
+      - ../..:/workspace:cached
+      - ~/.kube:/home/dev/.kube/
+      - ~/.ssh:/home/dev/.ssh
+      - /mnt:/mnt
+      - vscode_extension:/home/dev/.vscode-server/extensions
+      - vscode_insider_extension:/home/dev/.vscode-server-insiders/extensions
+      - /run/docker.sock:/var/run/docker.sock
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    command: sleep infinity
+    network_mode: host
+
+volumes:
+  vscode_extension:
+  vscode_insider_extension:
