@@ -15,7 +15,8 @@
 		"shakram02.bash-beautify",
 		"GitLab.gitlab-workflow",
 		"redhat.vscode-yaml",
-		"ms-python.python"
+		"ms-python.python",
+		"jgclark.vscode-todo-highlight"
 	],
 	"settings": {
 		"cSpell.ignorePaths": [
