@@ -1,2 +1,3 @@
 test/
 logs/
+__pycache__
