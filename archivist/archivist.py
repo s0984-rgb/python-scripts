@@ -15,7 +15,8 @@ def main():
                                   bucket=args.bucket,
                                   certificate_path=args.certificate_path)
             if new_archive.new_files:
-                new_archive.main()
+                new_archive.create()
+                new_archive.cleanup()
             else:
                 logger.debug('There are no new files')
         case 'extract':

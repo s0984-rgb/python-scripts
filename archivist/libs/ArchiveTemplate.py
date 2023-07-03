@@ -8,7 +8,7 @@ from libs.logger import logger
 
 class ArchiveTemplate:
 
-    def __init__(self, directory, state_file, key_id, key_secret, endpoint_url, bucket, certificate_path):
+    def __init__(self, directory, state_file, key_id, key_secret, bucket, certificate_path, endpoint_url=None):
         self.directory = directory
         self.state_file = state_file
         self.key_id = key_id
@@ -17,7 +17,7 @@ class ArchiveTemplate:
         self.bucket = bucket
         self.certificate_path = certificate_path
 
-        self.state_file_path = os.path.join(self.directory, self.state_file)
+        self._state_file_path = os.path.join(self.directory, self.state_file)
 
         # Initialize S3 session
         session = boto3.session.Session()
@@ -28,15 +28,15 @@ class ArchiveTemplate:
                                  verify=self.certificate_path)
         
         # Download the archived files list if it is not present
-        if not os.path.exists(self.state_file_path):
-            self.download_from_s3(file_name=self.state_file_path, object_name=self.state_file)
+        if not os.path.exists(self._state_file_path):
+            self._download_from_s3(file_name=self._state_file_path, object_name=self.state_file)
 
     @property
     def state_data(self):
-        return self.get_archived_files()
+        return self._get_archived_files()
 
     # Get the list of files that have changed (new or missing)
-    def get_changed_files(self, type):
+    def _get_changed_files(self, type):
         directory_files = []
         try:
             for root, dirs, files in os.walk(self.directory):
@@ -59,15 +59,15 @@ class ArchiveTemplate:
             raise error
 
     # Read the contents of the archive state file
-    def get_archived_files(self):
+    def _get_archived_files(self):
         try:
-            with open(self.state_file_path, 'r') as file:
+            with open(self._state_file_path, 'r') as file:
                 return json.load(file)
         except FileNotFoundError:
             return []
 
     # Remove a file
-    def remove_file(self, file_path):
+    def _remove_file(self, file_path):
         try:
             os.remove(file_path)
             logger.info('Removed file \'%s\'', file_path)
@@ -77,7 +77,7 @@ class ArchiveTemplate:
             raise error
     
     # Upload a file to S3 bucket with a given object name
-    def upload_to_s3(self, file_name, object_name):
+    def _upload_to_s3(self, file_name, object_name):
         try:
             self.s3.upload_file(file_name, self.bucket, object_name)
             logger.info('Uploaded file \'%s\' to S3 bucket \'%s\' as \'%s\'', file_name, self.bucket, object_name)
@@ -91,7 +91,7 @@ class ArchiveTemplate:
             raise error
 
     # Download a file from S3 bucket to a local file path
-    def download_from_s3(self, object_name, file_name):
+    def _download_from_s3(self, object_name, file_name):
         try:
             self.s3.download_file(self.bucket, object_name, file_name)
             logger.info('Downloaded file \'%s\' from S3 bucket \'%s\' as \'%s\'', object_name, self.bucket, file_name)
