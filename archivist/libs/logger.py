@@ -5,7 +5,7 @@ from libs.arguments import args
 # Set default logging config
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
-formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] [%(module)s] %(message)s')
+formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
@@ -17,4 +17,4 @@ elif args.debug:
 else:
     logger.setLevel(logging.INFO)
 
-# Import logger
+# from logger import logger

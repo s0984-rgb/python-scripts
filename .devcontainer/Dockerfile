@@ -12,7 +12,7 @@ RUN apk add --upgrade --no-cache \
 RUN python3 -m ensurepip
 COPY ./archivist/requirements.txt /requirements.txt
 RUN python3 -m pip install --no-cache --upgrade -r /requirements.txt
-RUN python3 -m pip install --no-cache --upgrade awscli==1.27.142 awscli-plugin-endpoint==0.4 setuptools==67.8.0
+RUN python3 -m pip install --no-cache --upgrade awscli==1.27.142 awscli-plugin-endpoint==0.4 setuptools==67.8.0 snakeviz==2.2.0
 
 # Install Kubectx
 RUN git clone https://github.com/ahmetb/kubectx /opt/kubectx \
@@ -21,7 +21,7 @@ RUN git clone https://github.com/ahmetb/kubectx /opt/kubectx \
 # Install direnv
 RUN curl -sfL https://direnv.net/install.sh | bash
 # Install Vault
-COPY --from=vault:latest /bin/vault /bin/vault
+COPY --from=hashicorp/vault:latest /bin/vault /bin/vault
 # Install Kubectl
 COPY --from=bitnami/kubectl:1.21.8 /opt/bitnami/kubectl/bin/kubectl /usr/bin/kubectl
 

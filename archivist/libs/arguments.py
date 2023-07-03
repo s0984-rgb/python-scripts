@@ -11,7 +11,7 @@ parser.add_argument("-d", "--directory", type=str, help="Directory to run archiv
 parser.add_argument("-i", "--key_id", type=str, help="S3 Key ID to use", required=True)
 parser.add_argument("-k", "--key_secret", type=str, help="S3 Key Secret to use", required=True)
 parser.add_argument("-s", "--state_file", type=str, help="State file to use", default="archived_files.state", required=False)
-parser.add_argument("-u", "--endpoint_url", type=str, help="endpoint url for s3 upload", required=True)
+parser.add_argument("-u", "--endpoint_url", type=str, help="endpoint url for s3 upload", required=False)
 
 # Sub-command parser
 sub_parser = parser.add_subparsers(dest='cmd', required=True)
@@ -24,5 +24,6 @@ archive_parser.add_argument("-n", "--name", type=str, help="Name of the archive 
 # Extract sub-command
 extract_parser = sub_parser.add_parser('extract', help='Extract specified archive into directory')
 
-# Import this
 args = parser.parse_args()
+
+# from arguments import args

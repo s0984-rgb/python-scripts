@@ -16,7 +16,8 @@
 		"GitLab.gitlab-workflow",
 		"redhat.vscode-yaml",
 		"ms-python.python",
-		"jgclark.vscode-todo-highlight"
+		"jgclark.vscode-todo-highlight",
+		"tillahoffmann.snakeviz"
 	],
 	"settings": {
 		"cSpell.ignorePaths": [
