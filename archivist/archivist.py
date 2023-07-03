@@ -1,10 +1,10 @@
 from libs.logger import logger
 from libs.arguments import args
+from libs.Archive import Archiver, Extractor
 
 def main():
     match args.cmd:
         case 'archive':
-            from libs.Archiver import Archiver
             new_archive = Archiver(directory=args.directory,
                                   state_file=args.state_file,
                                   name=args.name,
@@ -20,7 +20,6 @@ def main():
             else:
                 logger.debug('There are no new files')
         case 'extract':
-            from libs.Extractor import Extractor
             extraction = Extractor(directory=args.directory,
                                    state_file=args.state_file,
                                    key_id=args.key_id,

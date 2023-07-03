@@ -1,0 +1,17 @@
+- get all files
+- filter for archive of max length
+- Add files that need to be archived to Archive class
+  - need:
+    - files to archive
+    - archive name
+    - state file to use
+    - directory to use
+- Make calls on that class for 
+
+
+python3 archivist/archivist.py -d /workspace/python-scripts/test/ -c /etc/ssl/certs/ca-certificates.crt -b sfavron-bucket -i AKIAXTZF6TFVFLSKEHKS -k jJuRmi1EYjCehKndXsTkzZ+0D+e5/5imTT9FbYkT --debug extract
+
+python3 archivist/archivist.py -d /workspace/python-scripts/test/ -c /etc/ssl/certs/ca-certificates.crt -b sfavron-bucket -i AKIAXTZF6TFVFLSKEHKS -k jJuRmi1EYjCehKndXsTkzZ+0D+e5/5imTT9FbYkT --debug archive -m 10
+
+
+python3 -m cProfile -o archivist.prof archivist/archivist.py -d /workspace/python-scripts/test/ -c /etc/ssl/certs/ca-certificates.crt -b sfavron-bucket -i AKIAXTZF6TFVFLSKEHKS -k jJuRmi1EYjCehKndXsTkzZ+0D+e5/5imTT9FbYkT --debug archive -m 10
