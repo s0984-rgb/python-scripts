@@ -4,7 +4,7 @@ ARG DEV_USER
 
 # Install base packages
 RUN apk add --upgrade --no-cache \
-  bash curl make gcc g++ openssl openssh git bash-completion ncurses perl gnupg util-linux shadow \
+  bash curl make gcc g++ openssl openssh git bash-completion ncurses perl gnupg util-linux shadow direnv \
   python3 docker docker-cli-compose docker-cli-buildx \
   && ln -sf python3 /usr/bin/python
 
@@ -18,8 +18,6 @@ RUN python3 -m pip install --no-cache --upgrade awscli==1.27.142 awscli-plugin-e
 RUN git clone https://github.com/ahmetb/kubectx /opt/kubectx \
   && mv /opt/kubectx/kubectx /usr/local/bin/kubectx \
   && mv /opt/kubectx/kubens /usr/local/bin/kubens
-# Install direnv
-RUN curl -sfL https://direnv.net/install.sh | bash
 # Install Vault
 COPY --from=hashicorp/vault:latest /bin/vault /bin/vault
 # Install Kubectl
@@ -30,8 +28,6 @@ RUN adduser -h /home/${DEV_USER} -s /bin/bash -u 1000 -D ${DEV_USER}
 # Copy custom scripts to home directory
 COPY --chown=${DEV_USER}:${DEV_USER} ./.devcontainer/.bashrc /home/${DEV_USER}/.bashrc
 COPY --chown=${DEV_USER}:${DEV_USER} ./.devcontainer/.profile /home/${DEV_USER}/.profile
-# Hook direnv into shell
-RUN direnv hook bash >> /home/${DEV_USER}/.bashrc
 # Create VSCode folder
 RUN mkdir -p /home/${DEV_USER}/.vscode-server/extensions \
   /home/${DEV_USER}/.vscode-server-insiders/extensions

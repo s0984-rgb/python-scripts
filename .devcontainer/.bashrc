@@ -19,3 +19,5 @@ export PS1="[\[\033[36m\]\u\[\033[00m\]@\[\033[33m\]\h\[\033[00m\]:\[\033[31m\]\
 
 # direnv
 direnv allow /workspace/anka >/dev/null 2>&1
+
+source <(direnv hook bash)

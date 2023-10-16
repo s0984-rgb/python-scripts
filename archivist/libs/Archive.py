@@ -22,6 +22,7 @@ class ArchiveTemplate:
         self.certificate_path = certificate_path
 
         self._state_file_path = os.path.join(self.directory, self.state_file)
+        self.state_data = self._get_archived_files()
 
         # Initialize S3 session
         session = boto3.session.Session()
@@ -34,10 +35,6 @@ class ArchiveTemplate:
         # Download the archived files list if it is not present
         if not os.path.exists(self._state_file_path):
             self._download_from_s3(file_name=self._state_file_path, object_name=self.state_file)
-
-    @property
-    def state_data(self):
-        return self._get_archived_files()
 
     # Get the list of files that have changed (new or missing)
     def _get_changed_files(self, type):
@@ -125,10 +122,7 @@ class Archiver(ArchiveTemplate):
         self.max_bytes = self.max * (1024 ** 3)
         self._archive_list = []
         self.timestamp = datetime.utcnow().isoformat(timespec='seconds').replace(':','')
-
-    @property
-    def new_files(self):
-        return self._get_changed_files('new')
+        self.new_files = self._get_changed_files('new')
 
     # Reset tarinfo
     def _reset(self, tarinfo):
@@ -217,17 +211,11 @@ class Archiver(ArchiveTemplate):
 # ArchiveTemplate subclass for extracting archive objects
 class Extractor(ArchiveTemplate):
 
-    @property
-    def missing_files(self):
-        return self._get_changed_files('missing')
-
-    @property
-    def _state_entries(self):
-        return [item for item in self.state_data if item['relative_path'] in self.missing_files]
-    
-    @property
-    def _missing_files_map(self):
-        return self._reduce_map(self._state_entries)
+    def __init__(self, *args, **kwargs):
+        ArchiveTemplate.__init__(self, *args, **kwargs)
+        self.missing_files = self._get_changed_files('missing')
+        self._state_entries = [item for item in self.state_data if item['relative_path'] in self.missing_files]
+        self._missing_files_map = self._reduce_map(self._state_entries)
 
     # Retrieve TarInfo of member files from missing files map
     def _get_missing_members(self, archive):
