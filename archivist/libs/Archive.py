@@ -20,9 +20,7 @@ class ArchiveTemplate:
         self.endpoint_url = endpoint_url
         self.bucket = bucket
         self.certificate_path = certificate_path
-
         self._state_file_path = os.path.join(self.directory, self.state_file)
-        self.state_data = self._get_archived_files()
 
         # Initialize S3 session
         session = boto3.session.Session()
@@ -31,10 +29,17 @@ class ArchiveTemplate:
                                  aws_access_key_id=self.key_id,
                                  aws_secret_access_key=self.key_secret,
                                  verify=self.certificate_path)
-        
         # Download the archived files list if it is not present
         if not os.path.exists(self._state_file_path):
             self._download_from_s3(file_name=self._state_file_path, object_name=self.state_file)
+        # Check state file for discrepancies
+        self.state_data = self._get_archived_files()
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, *exc):
+        self._remove_file(self._state_file_path)
 
     # Get the list of files that have changed (new or missing)
     def _get_changed_files(self, type):
@@ -124,6 +129,19 @@ class Archiver(ArchiveTemplate):
         self.timestamp = datetime.utcnow().isoformat(timespec='seconds').replace(':','')
         self.new_files = self._get_changed_files('new')
 
+    def __exit__(self, *exc):
+        # Upload and delete all archives we just created
+        for arc_name, arc in self._archive_list:
+            # Upload the updated archive to S3
+            self._upload_to_s3(arc, arc_name)
+            # Delete the archive
+            self._remove_file(arc)
+        # Upload the updated archive state file to S3
+        if self._archive_list:
+            self._upload_to_s3(self._state_file_path, self.state_file)
+        self.s3.close()
+        self._remove_file(self._state_file_path)
+
     # Reset tarinfo
     def _reset(self, tarinfo):
         tarinfo.uid = tarinfo.gid = 0
@@ -165,48 +183,40 @@ class Archiver(ArchiveTemplate):
     
     # Create archive of approx size 'self.max_bytes'
     def create(self):
-        # Variables for tracking archives
-        temp_archive = [] # Temporary list for tracking size of archives
-        current_size = 0
-        current_archive = 0
-        for target in self.new_files:
-            archive_name = self.name + '-' + self.timestamp + '-' + str(current_archive) + Archiver.suffix
-            archive = os.path.join(self.directory, archive_name)
-            file_path = os.path.join(self.directory, target)
-            file_size = os.path.getsize(file_path)
-            # If total size of archive is less than the max, create a temporary list of files that need to be archived
-            if current_size + file_size <= self.max_bytes:
-                temp_archive.append(target)
-                current_size += file_size
-            # Once archive max size is reached, flush to an archive, and incrementing unique naming variables
-            else:
-                # Append current iteration file before flushing
-                temp_archive.append(target)
-                # Flush to archive
+        if self.new_files:
+            # Variables for tracking archives
+            temp_archive = [] # Temporary list for tracking size of archives
+            current_size = 0
+            current_archive = 0
+            for target in self.new_files:
+                archive_name = self.name + '-' + self.timestamp + '-' + str(current_archive) + Archiver.suffix
+                archive = os.path.join(self.directory, archive_name)
+                file_path = os.path.join(self.directory, target)
+                file_size = os.path.getsize(file_path)
+                # If total size of archive is less than the max, create a temporary list of files that need to be archived
+                if current_size + file_size <= self.max_bytes:
+                    temp_archive.append(target)
+                    current_size += file_size
+                # Once archive max size is reached, flush to an archive, and incrementing unique naming variables
+                else:
+                    # Append current iteration file before flushing
+                    temp_archive.append(target)
+                    # Flush to archive
+                    self._add_to_archive(temp_archive, archive)
+                    # Track the archive we just created
+                    self._archive_list.append((archive_name, archive))
+                    # Reset internal tracking variables
+                    temp_archive = []
+                    current_size = 0
+                    # Increment naming variables
+                    current_archive += 1
+            # If we don't reach max, still create archive with the files we have
+            if temp_archive:
                 self._add_to_archive(temp_archive, archive)
                 # Track the archive we just created
                 self._archive_list.append((archive_name, archive))
-                # Reset internal tracking variables
-                temp_archive = []
-                current_size = 0
-                # Increment naming variables
-                current_archive += 1
-        # If we don't reach max, still create archive with the files we have
-        if temp_archive:
-            self._add_to_archive(temp_archive, archive)
-            # Track the archive we just created
-            self._archive_list.append((archive_name, archive))
-
-    def cleanup(self):
-        # Upload and delete all archives we just created
-        for arc_name, arc in self._archive_list:
-            # Upload the updated archive to S3
-            self._upload_to_s3(arc, arc_name)
-            # Delete the archive
-            self._remove_file(arc)
-        # Upload the updated archive state file to S3
-        self._upload_to_s3(self._state_file_path, self.state_file)
-        self.s3.close()
+        else:
+            logger.debug('There are no new files')
 
 # ArchiveTemplate subclass for extracting archive objects
 class Extractor(ArchiveTemplate):
@@ -255,15 +265,18 @@ class Extractor(ArchiveTemplate):
             raise error
     
     def extract(self):
-        logger.debug('Missing files: \'%s\'', self.missing_files)
-        for item in self._missing_files_map:
-            archive_full_path = os.path.join(self.directory, item)
-            # Download the archive if it is not present
-            if not os.path.isfile(archive_full_path):
-                self._download_from_s3(item, archive_full_path)
-            # Retrieve TarInfo of members that must be extracted
-            tar_members = self._get_missing_members(archive_full_path)
-            # Extract only missing files
-            self._extract_archive(archive_full_path, tar_members)
-            # Do not store archives on local disk
-            self._remove_file(archive_full_path)
+        if self.missing_files:
+            logger.debug('Missing files: \'%s\'', self.missing_files)
+            for item in self._missing_files_map:
+                archive_full_path = os.path.join(self.directory, item)
+                # Download the archive if it is not present
+                if not os.path.isfile(archive_full_path):
+                    self._download_from_s3(item, archive_full_path)
+                # Retrieve TarInfo of members that must be extracted
+                tar_members = self._get_missing_members(archive_full_path)
+                # Extract only missing files
+                self._extract_archive(archive_full_path, tar_members)
+                # Do not store archives on local disk
+                self._remove_file(archive_full_path)
+        else:
+            logger.debug("There are no files missing from the current state")
