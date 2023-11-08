@@ -84,6 +84,23 @@ class ArchiveTemplate:
         except Exception as error:
             raise error
 
+    def _write_to_s3(self, data, object_name):
+        try:
+            self.s3.put_object(
+                Body=bytes(data.encode('utf-8')),
+                Bucket=self.bucket,
+                Key=object_name
+            )
+            logger.info('Updated \'%s\' in bucket \'%s\'', object_name, self.bucket)
+        except botocore.exceptions.NoCredentialsError:
+            logger.error('AWS credentials not found. Please check the provided key ID and secret')
+            sys.exit(1)
+        except botocore.exceptions.EndpointConnectionError:
+            logger.error('Failed to connect to the specified S3 endpoint URL')
+            sys.exit(1)
+        except Exception as error:
+            raise error
+
     def _read_from_s3(self, object_name):
         try:
             data = self.s3.get_object(Bucket=self.bucket, Key=object_name)
@@ -178,6 +195,7 @@ class Archiver(ArchiveTemplate):
     def _add_to_archive(self, data, archive):
         try:
             archived_data = []
+            new_state_data = self.state_data
             with tarfile.open(archive, 'w:gz') as tar:
                 logger.debug('tarfile \'%s\' opened', archive)
                 for target in data:
@@ -188,20 +206,11 @@ class Archiver(ArchiveTemplate):
                                           'relative_path': target,
                                           'archive_name': os.path.relpath(archive, self.directory)
                                         })
-            self._update_archived_files(archived_data)
-        except Exception as error:
-            raise error
-
-    # Appends a newly archived file to the archive state file
-    def _update_archived_files(self, data):
-        try:
-            state_data = self.state_data
-            for item in data:
-                state_data.append(item)
-            self.s3.put_object(
-                Body=bytes(json.dumps(state_data, indent=4).encode('utf-8')),
-                Bucket=self.bucket,
-                Key=self.state_file
+            for item in archived_data:
+                new_state_data.append(item)
+            self._write_to_s3(
+                data=json.dumps(new_state_data, indent=4),
+                object_name=self.state_file
             )
         except Exception as error:
             raise error
