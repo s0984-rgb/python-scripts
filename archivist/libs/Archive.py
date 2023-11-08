@@ -25,22 +25,23 @@ class ArchiveTemplate:
         # Initialize S3 session
         session = boto3.session.Session()
         # Create client from session parameters
-        self.s3 = session.client("s3", endpoint_url=self.endpoint_url,
-                                 aws_access_key_id=self.key_id,
-                                 aws_secret_access_key=self.key_secret,
-                                 verify=self.certificate_path)
-        # Download the archived files list if it is not present
-        if not os.path.exists(self._state_file_path):
-            self._download_from_s3(file_name=self._state_file_path, object_name=self.state_file)
+        self.s3 = session.client(
+            's3',
+            endpoint_url=self.endpoint_url,
+            aws_access_key_id=self.key_id,
+            aws_secret_access_key=self.key_secret,
+            verify=self.certificate_path
+        )
         # Check state file for discrepancies
         self.state_data = self._get_archived_files()
-    
+
     def __enter__(self):
         return self
-    
+
     def __exit__(self, *exc):
         self.s3.close()
-        self._remove_file(self._state_file_path)
+        if os.path.exists(self._state_file_path):
+            self._remove_file(self._state_file_path)
 
     # Get the list of files that have changed (new or missing)
     def _get_changed_files(self, type):
@@ -67,10 +68,10 @@ class ArchiveTemplate:
 
     # Read the contents of the archive state file
     def _get_archived_files(self):
-        try:
-            with open(self._state_file_path, 'r') as file:
-                return json.load(file)
-        except FileNotFoundError:
+        content = self._read_from_s3(object_name=self.state_file)
+        if content:
+            return json.loads(content)
+        else:
             return []
 
     # Remove a file
@@ -82,7 +83,30 @@ class ArchiveTemplate:
             logger.warning('File \'%s\' does not exist', file_path)
         except Exception as error:
             raise error
-    
+
+    def _read_from_s3(self, object_name):
+        try:
+            data = self.s3.get_object(Bucket=self.bucket, Key=object_name)
+            contents = data['Body'].read()
+            return contents.decode('utf-8')
+        except botocore.exceptions.NoCredentialsError:
+            logger.error('AWS credentials not found. Please check the provided key ID and secret')
+            sys.exit(1)
+        except botocore.exceptions.EndpointConnectionError:
+            logger.error('Failed to connect to the specified S3 endpoint URL')
+            sys.exit(1)
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response['Error']['Code']
+            if error_code == 'InvalidAccessKeyId':
+                logger.error('Credentials provided are forbidden from accessing this object')
+                raise e
+            elif error_code == 'NoSuchKey':
+                logger.info('The object does not exist')
+            else:
+                raise e
+        except Exception as error:
+            raise error
+
     # Upload a file to S3 bucket with a given object name
     def _upload_to_s3(self, file_name, object_name):
         try:
@@ -109,8 +133,12 @@ class ArchiveTemplate:
             logger.error('Failed to connect to the specified S3 endpoint URL')
             sys.exit(1)
         except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == "404":
-                logger.info("The object does not exist.")
+            error_code = e.response['Error']['Code']
+            if error_code == '403':
+                logger.exception('Credentials provided are forbidden access to this object')
+                raise e
+            elif error_code == '404':
+                logger.info('The object does not exist.')
             else:
                 raise e
         except Exception as error:
@@ -137,31 +165,28 @@ class Archiver(ArchiveTemplate):
             self._upload_to_s3(arc, arc_name)
             # Delete the archive
             self._remove_file(arc)
-        # Upload the updated archive state file to S3
-        if self._archive_list:
-            self._upload_to_s3(self._state_file_path, self.state_file)
         # Call Parent cleanup
         ArchiveTemplate.__exit__(self)
 
     # Reset tarinfo
     def _reset(self, tarinfo):
         tarinfo.uid = tarinfo.gid = 0
-        tarinfo.uname = tarinfo.gname = "root"
+        tarinfo.uname = tarinfo.gname = 'root'
         return tarinfo
-    
+
     # Add a list of files to the archive and update state file
     def _add_to_archive(self, data, archive):
         try:
             archived_data = []
-            with tarfile.open(archive, "w:gz") as tar:
+            with tarfile.open(archive, 'w:gz') as tar:
                 logger.debug('tarfile \'%s\' opened', archive)
                 for target in data:
                     path = os.path.join(self.directory, target)
                     tar.add(path, target, filter=self._reset)
                     logger.info('Added file \'%s\' to the archive \'%s\'', path, archive)
                     archived_data.append({
-                                          "relative_path": target,
-                                          "archive_name": os.path.relpath(archive, self.directory)
+                                          'relative_path': target,
+                                          'archive_name': os.path.relpath(archive, self.directory)
                                         })
             self._update_archived_files(archived_data)
         except Exception as error:
@@ -171,17 +196,16 @@ class Archiver(ArchiveTemplate):
     def _update_archived_files(self, data):
         try:
             state_data = self.state_data
-            with open(self._state_file_path, "r+") as file:
-                for item in data:
-                    if item not in state_data:
-                        state_data.append(item)
-                json.dump(state_data, file, indent=4)
-        except FileNotFoundError:
-            with open(self._state_file_path, "w") as file:
-                json.dump(data, file, indent=4)
+            for item in data:
+                state_data.append(item)
+            self.s3.put_object(
+                Body=bytes(json.dumps(state_data, indent=4).encode('utf-8')),
+                Bucket=self.bucket,
+                Key=self.state_file
+            )
         except Exception as error:
             raise error
-    
+
     # Create archive of approx size 'self.max_bytes'
     def create(self):
         if self.new_files:
@@ -238,8 +262,8 @@ class Extractor(ArchiveTemplate):
                 if member.name in self._missing_files_map[key]:
                     missing_files_list.append(member)
         return missing_files_list
-    
-    # Take missing files, and return map of { "archive": [list of files to extract from "archive"] }
+
+    # Take missing files, and return map of { 'archive': [list of files to extract from 'archive'] }
     def _reduce_map(self, data):
         data_map = {}
         for key in data:
@@ -252,19 +276,19 @@ class Extractor(ArchiveTemplate):
             except Exception as error:
                 raise error
         return data_map
-    
+
     # Extact all files from an archive to a specified directory
     def _extract_archive(self, archive, member_list):
         try:
             files = [ x.name for x in member_list ]
-            logger.info("Extracting file(s) \'%s\' from archive \'%s\' into directory \'%s\'", files, archive, self.directory)
+            logger.info('Extracting file(s) \'%s\' from archive \'%s\' into directory \'%s\'', files, archive, self.directory)
             with tarfile.open(archive, 'r:gz') as tar:
                 logger.debug('Starting extraction of \'%s\' into \'%s\'', archive, self.directory)
                 tar.extractall(path=self.directory, members=member_list)
             logger.debug('Extraction complete')
         except Exception as error:
             raise error
-    
+
     def extract(self):
         if self.missing_files:
             logger.debug('Missing files: \'%s\'', self.missing_files)
@@ -280,4 +304,4 @@ class Extractor(ArchiveTemplate):
                 # Do not store archives on local disk
                 self._remove_file(archive_full_path)
         else:
-            logger.debug("There are no files missing from the current state")
+            logger.debug('There are no files missing from the current state')
