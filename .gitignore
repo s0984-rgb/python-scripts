@@ -1,3 +1,4 @@
 test/
 logs/
 __pycache__
+*.test
