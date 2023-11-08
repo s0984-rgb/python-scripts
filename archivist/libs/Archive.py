@@ -39,6 +39,7 @@ class ArchiveTemplate:
         return self
     
     def __exit__(self, *exc):
+        self.s3.close()
         self._remove_file(self._state_file_path)
 
     # Get the list of files that have changed (new or missing)
@@ -139,8 +140,8 @@ class Archiver(ArchiveTemplate):
         # Upload the updated archive state file to S3
         if self._archive_list:
             self._upload_to_s3(self._state_file_path, self.state_file)
-        self.s3.close()
-        self._remove_file(self._state_file_path)
+        # Call Parent cleanup
+        ArchiveTemplate.__exit__(self)
 
     # Reset tarinfo
     def _reset(self, tarinfo):
