@@ -4,7 +4,7 @@ from libs.Garden import Garden
 
 def main():
     # Main execution
-    with Garden(system=args.system, age=args.age, config_file=args.config) as garden:
+    with Garden(system=args.system, age=args.age, config_file=args.config, size=args.min_size) as garden:
         garden.tend()
 
 if __name__ == "__main__":
